@@ -1,0 +1,293 @@
+openapi: 3.1.0
+info:
+  title: Originador de Créditos API
+  description: API para la originación digital de préstamos
+  version: 1.0.0
+servers:
+  - url: https://api.banco.com/creditos/v1
+    description: Producción
+  - url: https://api-sandbox.banco.com/creditos/v1
+    description: Sandbox
+paths:
+  /solicitudes:
+    post:
+      summary: Crear una solicitud de préstamo
+      description: Endpoint para iniciar el proceso de originación de un préstamo
+      operationId: crearSolicitud
+      tags:
+        - Solicitudes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudPrestamo'
+            examples:
+              solicitudEjemplo:
+                value:
+                  clienteId: "cli_123456789"
+                  monto: 10000
+                  plazoMeses: 12
+                  proposito: "CONSOLIDACION_DEUDAS"
+                  ingresosMensuales: 5000
+                  empleador: "Empresa XYZ"
+      responses:
+        "201":
+          description: Solicitud creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prestamo'
+              examples:
+                prestamoEjemplo:
+                  value:
+                    id: "prest_987654321"
+                    clienteId: "cli_123456789"
+                    monto: 10000
+                    plazoMeses: 12
+                    tasaInteres: 12.5
+                    cuotaMensual: 888.49
+                    estado: "APROBADO"
+                    fechaDesembolso: "2023-11-15"
+        "400":
+          description: Solicitud inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorEjemplo:
+                  value:
+                    codigo: "INVALID_REQUEST"
+                    mensaje: "El monto solicitado excede el límite permitido"
+                    detalles:
+                      - "monto: debe ser menor o igual a 20000"
+        "403":
+          description: Fraude detectado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorEjemplo:
+                  value:
+                    codigo: "FRAUD_DETECTED"
+                    mensaje: "Se detectó un posible fraude en la solicitud"
+        "429":
+          description: Límite de tasa excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorEjemplo:
+                  value:
+                    codigo: "RATE_LIMIT_EXCEEDED"
+                    mensaje: "Se ha excedido el límite de solicitudes"
+        "500":
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorEjemplo:
+                  value:
+                    codigo: "INTERNAL_ERROR"
+                    mensaje: "Ocurrió un error inesperado"
+  /solicitudes/{id}:
+    get:
+      summary: Obtener el estado de una solicitud
+      description: Endpoint para consultar el estado de una solicitud en proceso
+      operationId: consultarSolicitud
+      tags:
+        - Solicitudes
+      parameters:
+        - name: id
+          in: path
+          description: ID de la solicitud
+          required: true
+          schema:
+            type: string
+            example: "sol_123456789"
+      responses:
+        "200":
+          description: Estado de la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoSolicitud'
+              examples:
+                estadoEjemplo:
+                  value:
+                    id: "sol_123456789"
+                    estado: "EN_PROCESO"
+                    pasosCompletados:
+                      - "VALIDACION_INICIAL"
+                      - "EVALUACION_ANTIFRAUDE"
+                    fechaCreacion: "2023-11-10T10:00:00Z"
+        "404":
+          description: Solicitud no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                errorEjemplo:
+                  value:
+                    codigo: "NOT_FOUND"
+                    mensaje: "Solicitud no encontrada"
+
+components:
+  schemas:
+    SolicitudPrestamo:
+      type: object
+      required:
+        - clienteId
+        - monto
+        - plazoMeses
+        - proposito
+        - ingresosMensuales
+      properties:
+        clienteId:
+          type: string
+          description: Identificador único del cliente
+          example: "cli_123456789"
+        monto:
+          type: number
+          format: double
+          description: Monto solicitado en la moneda local
+          example: 10000
+        plazoMeses:
+          type: integer
+          description: Plazo del préstamo en meses
+          example: 12
+        proposito:
+          type: string
+          enum:
+            - CONSOLIDACION_DEUDAS
+            - REFORMA_VIVIENDA
+            - EDUCACION
+            - VEHICULO
+            - VIAJE
+            - OTRO
+          description: Propósito del préstamo
+        ingresosMensuales:
+          type: number
+          format: double
+          description: Ingresos mensuales del cliente
+          example: 5000
+        empleador:
+          type: string
+          description: Nombre del empleador del cliente
+          example: "Empresa XYZ"
+    Prestamo:
+      type: object
+      required:
+        - id
+        - clienteId
+        - monto
+        - plazoMeses
+        - tasaInteres
+        - cuotaMensual
+        - estado
+      properties:
+        id:
+          type: string
+          description: Identificador único del préstamo
+          example: "prest_987654321"
+        clienteId:
+          type: string
+          description: Identificador único del cliente
+          example: "cli_123456789"
+        monto:
+          type: number
+          format: double
+          description: Monto aprobado
+          example: 10000
+        plazoMeses:
+          type: integer
+          description: Plazo del préstamo en meses
+          example: 12
+        tasaInteres:
+          type: number
+          format: double
+          description: Tasa de interés anual
+          example: 12.5
+        cuotaMensual:
+          type: number
+          format: double
+          description: Cuota mensual a pagar
+          example: 888.49
+        estado:
+          type: string
+          enum:
+            - APROBADO
+            - RECHAZADO
+            - EN_PROCESO
+            - LIQUIDADO
+          description: Estado del préstamo
+        fechaDesembolso:
+          type: string
+          format: date
+          description: Fecha estimada de desembolso
+          example: "2023-11-15"
+    EstadoSolicitud:
+      type: object
+      required:
+        - id
+        - estado
+        - pasosCompletados
+        - fechaCreacion
+      properties:
+        id:
+          type: string
+          description: Identificador único de la solicitud
+          example: "sol_123456789"
+        estado:
+          type: string
+          enum:
+            - EN_PROCESO
+            - APROBADO
+            - RECHAZADO
+            - CANCELADO
+          description: Estado actual de la solicitud
+        pasosCompletados:
+          type: array
+          items:
+            type: string
+            enum:
+              - VALIDACION_INICIAL
+              - EVALUACION_ANTIFRAUDE
+              - CONSULTA_BURO_RIESGOS
+              - EVALUACION_ELEGIBILIDAD
+              - CREACION_PRESTAMO
+              - CONFIGURACION_DESEMBOLSO
+              - LIQUIDACION
+          description: Pasos del proceso completados
+        fechaCreacion:
+          type: string
+          format: date-time
+          description: Fecha y hora de creación de la solicitud
+          example: "2023-11-10T10:00:00Z"
+    Error:
+      type: object
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código de error
+          example: "INVALID_REQUEST"
+        mensaje:
+          type: string
+          description: Mensaje descriptivo del error
+          example: "El monto solicitado excede el límite permitido"
+        detalles:
+          type: array
+          items:
+            type: string
+          description: Detalles adicionales del error
+          example:
+            - "monto: debe ser menor o igual a 20000"

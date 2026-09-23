@@ -1,0 +1,236 @@
+asyncapi: 2.6.0
+info:
+  title: Eventos de Originación Digital
+  version: 1.0.0
+  description: Eventos asíncronos para la coordinación entre componentes en el proceso de originación de préstamos
+servers:
+  produccion:
+    url: broker.banco.com
+    protocol: kafka
+    description: Producción
+  sandbox:
+    url: broker-sandbox.banco.com
+    protocol: kafka
+    description: Sandbox
+channels:
+  resultadoAntifraude:
+    description: Canal para recibir resultados de evaluación antifraude
+    subscribe:
+      summary: Recibir resultado de evaluación antifraude
+      operationId: recibirResultadoAntifraude
+      message:
+        $ref: '#/components/messages/ResultadoAntifraude'
+  resultadoHistorialCrediticio:
+    description: Canal para recibir resultados de consulta al buró de riesgos
+    subscribe:
+      summary: Recibir resultado de historial crediticio
+      operationId: recibirResultadoHistorialCrediticio
+      message:
+        $ref: '#/components/messages/ResultadoHistorialCrediticio'
+  prestamoCreado:
+    description: Canal para recibir notificación de préstamo creado en el core bancario
+    subscribe:
+      summary: Recibir notificación de préstamo creado
+      operationId: recibirPrestamoCreado
+      message:
+        $ref: '#/components/messages/PrestamoCreado'
+  liquidacionCompletada:
+    description: Canal para recibir notificación de liquidación completada
+    subscribe:
+      summary: Recibir notificación de liquidación completada
+      operationId: recibirLiquidacionCompletada
+      message:
+        $ref: '#/components/messages/LiquidacionCompletada'
+components:
+  messages:
+    ResultadoAntifraude:
+      name: ResultadoAntifraude
+      title: Resultado de evaluación antifraude
+      payload:
+        type: object
+        required:
+          - solicitudId
+          - riesgo
+          - timestamp
+        properties:
+          solicitudId:
+            type: string
+            description: ID de la solicitud evaluada
+            example: "sol_123456789"
+          riesgo:
+            type: string
+            enum:
+              - ALTO
+              - MEDIO
+              - BAJO
+            description: Nivel de riesgo detectado
+          timestamp:
+            type: string
+            format: date-time
+            description: Fecha y hora del resultado
+            example: "2023-11-10T10:05:00Z"
+          detalles:
+            type: object
+            description: Detalles adicionales del análisis
+            example:
+              score: 85
+              reglasVioladas:
+                - "UBICACION_SOSPECHOSA"
+                - "DISPOSITIVO_NO_RECONOCIDO"
+    ResultadoHistorialCrediticio:
+      name: ResultadoHistorialCrediticio
+      title: Resultado de consulta al buró de riesgos
+      payload:
+        type: object
+        required:
+          - solicitudId
+          - score
+          - historial
+          - timestamp
+        properties:
+          solicitudId:
+            type: string
+            description: ID de la solicitud consultada
+            example: "sol_123456789"
+          score:
+            type: integer
+            description: Score crediticio del cliente (0-1000)
+            example: 720
+          historial:
+            type: object
+            description: Historial crediticio del cliente
+            properties:
+              creditosActivos:
+                type: integer
+                description: Número de créditos activos
+                example: 2
+              creditosMorosos:
+                type: integer
+                description: Número de créditos morosos
+                example: 0
+              deudaTotal:
+                type: number
+                format: double
+                description: Deuda total en moneda local
+                example: 15000
+              ultimoIncumplimiento:
+                type: string
+                format: date
+                description: Fecha del último incumplimiento
+                example: "2022-05-15"
+          timestamp:
+            type: string
+            format: date-time
+            description: Fecha y hora del resultado
+            example: "2023-11-10T10:10:00Z"
+    PrestamoCreado:
+      name: PrestamoCreado
+      title: Notificación de préstamo creado
+      payload:
+        type: object
+        required:
+          - prestamoId
+          - solicitudId
+          - estado
+          - timestamp
+        properties:
+          prestamoId:
+            type: string
+            description: ID del préstamo creado
+            example: "prest_987654321"
+          solicitudId:
+            type: string
+            description: ID de la solicitud asociada
+            example: "sol_123456789"
+          estado:
+            type: string
+            enum:
+              - APROBADO
+              - RECHAZADO
+            description: Estado del préstamo
+          timestamp:
+            type: string
+            format: date-time
+            description: Fecha y hora de creación
+            example: "2023-11-10T10:15:00Z"
+          detalles:
+            type: object
+            description: Detalles adicionales del préstamo
+            properties:
+              monto:
+                type: number
+                format: double
+                example: 10000
+              plazoMeses:
+                type: integer
+                example: 12
+              tasaInteres:
+                type: number
+                format: double
+                example: 12.5
+    LiquidacionCompletada:
+      name: LiquidacionCompletada
+      title: Notificación de liquidación completada
+      payload:
+        type: object
+        required:
+          - prestamoId
+          - estado
+          - timestamp
+        properties:
+          prestamoId:
+            type: string
+            description: ID del préstamo liquidado
+            example: "prest_987654321"
+          estado:
+            type: string
+            enum:
+              - EXITOSA
+              - FALLIDA
+            description: Estado de la liquidación
+          timestamp:
+            type: string
+            format: date-time
+            description: Fecha y hora de la liquidación
+            example: "2023-11-10T11:00:00Z"
+          detalles:
+            type: object
+            description: Detalles adicionales de la liquidación
+            properties:
+              montoDesembolsado:
+                type: number
+                format: double
+                example: 10000
+              cuentaDestino:
+                type: string
+                example: "001-123456789"
+              referencia:
+                type: string
+                example: "LIQ-20231110-987654321"
+  schemas:
+    ErrorEvento:
+      type: object
+      required:
+        - codigo
+        - mensaje
+        - timestamp
+      properties:
+        codigo:
+          type: string
+          description: Código de error
+          example: "PROCESSING_ERROR"
+        mensaje:
+          type: string
+          description: Mensaje descriptivo del error
+          example: "Error al procesar la liquidación"
+        timestamp:
+          type: string
+          format: date-time
+          description: Fecha y hora del error
+          example: "2023-11-10T11:05:00Z"
+        detalles:
+          type: object
+          description: Detalles adicionales del error
+          example:
+            solicitudId: "sol_123456789"
+            prestamoId: "prest_987654321""

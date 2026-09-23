@@ -1,0 +1,53 @@
+```mermaid
+%% Diagrama C4 de Contexto - Sistema de Originación Digital de Préstamos
+%% Contexto: Muestra las instancias del dominio y sus interacciones con el sistema principal.
+%% Escala: 1500 solicitudes/segundo en hora pico, SLA 99.9%, tiempo de respuesta < 2s.
+
+C4Context
+	title Sistema de Originación Digital - Diagrama de Contexto
+
+	%% Actores Externos
+	Person(cliente, "Cliente", "Usuario final que solicita un préstamo digital")
+	Person(analistaRiesgo, "Analista de Riesgo", "Personal del banco que revisa solicitudes manualmente")
+	Person(agenteCobranza, "Agente de Cobranza", "Personal encargado de gestionar cobros")
+
+	%% Sistemas Externos
+	System_Ext(buroRiesgos, "Buró de Riesgos", "Proveedor externo de información crediticia")
+	System_Ext(motorAntifraude, "Motor Antifraude", "Sistema externo para detección de fraudes en tiempo real")
+	System_Ext(coreBancario, "Core Bancario", "Sistema central del banco para gestión de cuentas")
+	System_Ext(gatewayPagos, "Gateway de Pagos", "Sistema para procesar desembolsos y cobros")
+	System_Ext(sistemaLiquidacion, "Sistema de Liquidación", "Sistema para liquidación de préstamos y pagos")
+	System_Ext(sistemaNotificaciones, "Sistema de Notificaciones", "Envío de alertas y comunicaciones")
+
+	%% Sistema Principal
+	System(sistemaOriginacion, "Sistema de Originación Digital", "Sistema central que gestiona el proceso de solicitud y aprobación de préstamos")
+
+	%% Relaciones
+	Rel(cliente, sistemaOriginacion, "Solicita préstamo", "HTTPS")
+	Rel(sistemaOriginacion, buroRiesgos, "Consulta score crediticio", "REST/JSON")
+	Rel(sistemaOriginacion, motorAntifraude, "Envía datos para análisis de fraude", "gRPC")
+	Rel(sistemaOriginacion, coreBancario, "Crea cuenta de préstamo", "SOAP/XML")
+	Rel(sistemaOriginacion, gatewayPagos, "Solicita desembolso", "REST/JSON")
+	Rel(sistemaOriginacion, sistemaLiquidacion, "Registra operación", "Eventos/Kafka")
+	Rel(sistemaOriginacion, sistemaNotificaciones, "Envía notificación", "Eventos/SQS")
+	Rel(analistaRiesgo, sistemaOriginacion, "Revisa solicitudes", "HTTPS")
+	Rel(agenteCobranza, sistemaOriginacion, "Gestiona cobros", "HTTPS")
+	Rel(coreBancario, sistemaLiquidacion, "Confirma liquidación", "Batch/CSV")
+
+	%% Estilos
+	UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+	UpdateElementStyle(sistemaOriginacion, $fontColor="white", $bgColor="#1E88E5", $borderColor="#1565C0")
+	UpdateElementStyle(buroRiesgos, $bgColor="#B39DDB", $borderColor="#7E57C2")
+	UpdateElementStyle(motorAntifraude, $bgColor="#FFAB91", $borderColor="#FF7043")
+	UpdateElementStyle(coreBancario, $bgColor="#C5E1A5", $borderColor="#8BC34A")
+	UpdateElementStyle(gatewayPagos, $bgColor="#FFE082", $borderColor="#FFB300")
+	UpdateElementStyle(sistemaLiquidacion, $bgColor="#80DEEA", $borderColor="#00BCD4")
+	UpdateElementStyle(sistemaNotificaciones, $bgColor="#F8BBD9", $borderColor="#E91E63")
+```
+
+%% Notas adicionales:
+%% - El sistema de originación actúa como orquestador entre los sistemas externos.
+%% - La consulta al buró de riesgos y motor antifraude es síncrona (bloqueante) para decisiones en tiempo real.
+%% - Las operaciones con el core bancario y gateway de pagos pueden ser asíncronas para manejar carga.
+%% - El sistema de liquidación recibe eventos para reconciliación.
+%% - El sistema de notificaciones opera bajo modelo pub/sub para escalabilidad.

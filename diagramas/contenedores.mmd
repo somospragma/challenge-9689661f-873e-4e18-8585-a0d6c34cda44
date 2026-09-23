@@ -1,0 +1,71 @@
+```mermaid
+%% Diagrama C4 de Contenedores - Sistema de Originación Digital
+%% Contexto: Detalle de los contenedores del sistema de originación y sus responsabilidades.
+%% Atributos de calidad: Disponibilidad 99.9%, throughput 1500 solicitudes/segundo, latencia < 2s.
+
+C4Container
+	title Sistema de Originación Digital - Diagrama de Contenedores
+
+	%% Sistemas Externos
+	System_Ext(buroRiesgos, "Buró de Riesgos", "Proveedor externo")
+	System_Ext(motorAntifraude, "Motor Antifraude", "Sistema externo")
+	System_Ext(coreBancario, "Core Bancario", "Sistema central")
+	System_Ext(gatewayPagos, "Gateway de Pagos", "Procesamiento de pagos")
+	System_Ext(sistemaLiquidacion, "Sistema de Liquidación", "Liquidación de préstamos")
+	System_Ext(sistemaNotificaciones, "Sistema de Notificaciones", "Comunicaciones")
+
+	%% Contenedores del Sistema
+	ContainerDb(dbSolicitudes, "Base de Datos Solicitudes", "PostgreSQL", "Almacena solicitudes y estados")
+	ContainerDb(dbMaestra, "Base de Datos Maestra", "PostgreSQL", "Datos de clientes y préstamos")
+	ContainerDb(cache, "Caché", "Redis", "Almacén temporal para datos frecuentes")
+
+	Container(apiGateway, "API Gateway", "Spring Cloud Gateway", "Punto de entrada HTTP, enrutamiento y rate limiting")
+	Container(originadorService, "Servicio Originador", "Java/Spring Boot", "Lógica de negocio para solicitudes de préstamos")
+	Container(antifraudeService, "Servicio Antifraude", "Java/Spring Boot", "Integración con motor antifraude")
+	Container(riesgoService, "Servicio de Riesgo", "Java/Spring Boot", "Evaluación de riesgo crediticio")
+	Container(liquidacionService, "Servicio de Liquidación", "Java/Spring Boot", "Orquestación de liquidación")
+	Container(notificacionService, "Servicio de Notificaciones", "Node.js", "Envío de notificaciones asíncronas")
+	Container(batchProcessor, "Procesador Batch", "Java/Batch", "Procesamiento de liquidaciones nocturnas")
+	Container(monitoring, "Monitoring", "Prometheus/Grafana", "Monitoreo y alertas")
+
+	%% Relaciones entre contenedores
+	Rel(apiGateway, originadorService, "Enruta solicitudes", "REST/JSON")
+	Rel(originadorService, antifraudeService, "Consulta antifraude", "gRPC")
+	Rel(originadorService, riesgoService, "Consulta riesgo", "REST/JSON")
+	Rel(originadorService, dbSolicitudes, "Guarda/lee solicitudes", "JDBC")
+	Rel(originadorService, cache, "Cachea datos frecuentes", "Redis")
+	Rel(originadorService, liquidacionService, "Inicia liquidación", "Eventos/Kafka")
+	Rel(antifraudeService, motorAntifraude, "Consulta en tiempo real", "gRPC")
+	Rel(riesgoService, buroRiesgos, "Consulta score", "REST/JSON")
+	Rel(riesgoService, cache, "Cachea scores", "Redis")
+	Rel(liquidacionService, coreBancario, "Crea cuenta préstamo", "SOAP/XML")
+	Rel(liquidacionService, gatewayPagos, "Solicita desembolso", "REST/JSON")
+	Rel(liquidacionService, sistemaLiquidacion, "Registra operación", "Eventos/Kafka")
+	Rel(notificacionService, sistemaNotificaciones, "Envía notificación", "Eventos/SQS")
+	Rel(batchProcessor, dbMaestra, "Procesa liquidaciones", "JDBC")
+	Rel(batchProcessor, sistemaLiquidacion, "Confirma liquidaciones", "Batch/CSV")
+	Rel(originadorService, monitoring, "Reporta métricas", "Prometheus")
+	Rel(apiGateway, monitoring, "Reporta latencia", "Prometheus")
+
+	%% Estilos
+	UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+	UpdateElementStyle(apiGateway, $fontColor="white", $bgColor="#42A5F5", $borderColor="#1976D2")
+	UpdateElementStyle(originadorService, $fontColor="white", $bgColor="#1E88E5", $borderColor="#1565C0")
+	UpdateElementStyle(antifraudeService, $fontColor="white", $bgColor="#FF7043", $borderColor="#D84315")
+	UpdateElementStyle(riesgoService, $fontColor="white", $bgColor="#7E57C2", $borderColor="#5E35B1")
+	UpdateElementStyle(liquidacionService, $fontColor="white", $bgColor="#00BCD4", $borderColor="#0097A7")
+	UpdateElementStyle(notificacionService, $fontColor="white", $bgColor="#E91E63", $borderColor="#C2185B")
+	UpdateElementStyle(batchProcessor, $fontColor="white", $bgColor="#FFB300", $borderColor="#F57F17")
+	UpdateElementStyle(dbSolicitudes, $bgColor="#B0BEC5", $borderColor="#607D8B")
+	UpdateElementStyle(dbMaestra, $bgColor="#B0BEC5", $borderColor="#607D8B")
+	UpdateElementStyle(cache, $bgColor="#FFD54F", $borderColor="#FFA000")
+```
+
+%% Notas adicionales:
+%% - API Gateway maneja autenticación, enrutamiento y rate limiting (1500 solicitudes/segundo).
+%% - Servicio Originador es stateless y escala horizontalmente.
+%% - Servicios de Antifraude y Riesgo usan caché para reducir latencia.
+%% - Liquidación opera bajo modelo eventual para manejar carga.
+%% - Procesador Batch corre fuera de horario pico para evitar impacto en performance.
+%% - Redis se usa para cachear scores de riesgo y datos de clientes frecuentes.
+%% - PostgreSQL se configura con réplicas para alta disponibilidad.

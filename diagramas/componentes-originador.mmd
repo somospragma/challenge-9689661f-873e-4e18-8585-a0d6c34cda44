@@ -1,0 +1,80 @@
+```mermaid
+%% Diagrama C4 de Componentes - Módulos del Servicio Originador
+%% Contexto: Detalle interno del servicio originador, mostrando sus módulos y comunicaciones.
+%% Responsabilidades: Gestión de solicitudes, orquestación de evaluaciones, manejo de estados.
+
+C4Component
+	title Servicio Originador - Diagrama de Componentes
+
+	%% Contenedor Padre
+	Container_Boundary(originador, "Servicio Originador") {
+		%% Componentes
+		Component(apiController, "API Controller", "Spring MVC", "Expone endpoints REST para solicitudes")
+		Component(solicitudOrchestrator, "Solicitud Orchestrator", "Java", "Orquesta el flujo de evaluación")
+		Component(riesgoEvaluator, "Riesgo Evaluator", "Java", "Evalúa riesgo crediticio")
+		Component(antifraudeEvaluator, "Antifraude Evaluator", "Java", "Evalúa señales de fraude")
+		Component(estadoManager, "Estado Manager", "Java", "Gestiona estados de solicitudes")
+		Component(liquidacionClient, "Liquidación Client", "Java", "Cliente para servicio de liquidación")
+		Component(notificacionClient, "Notificación Client", "Java", "Cliente para servicio de notificaciones")
+		Component(cacheRepository, "Cache Repository", "Java", "Gestiona caché de Redis")
+		Component(solicitudRepository, "Solicitud Repository", "Java", "Acceso a base de datos de solicitudes")
+		Component(maestraRepository, "Maestra Repository", "Java", "Acceso a base de datos maestra")
+		Component(metricas, "Métricas", "Micrometer", "Reporta métricas de performance")
+	}
+
+	%% Sistemas Externos
+	System_Ext(antifraudeService, "Servicio Antifraude", "")
+	System_Ext(riesgoService, "Servicio de Riesgo", "")
+	System_Ext(liquidacionService, "Servicio de Liquidación", "")
+	System_Ext(notificacionService, "Servicio de Notificaciones", "")
+	SystemDb(cache, "Caché (Redis)", "")
+	SystemDb(dbSolicitudes, "Base de Datos Solicitudes", "")
+	SystemDb(dbMaestra, "Base de Datos Maestra", "")
+
+	%% Relaciones
+	Rel(apiController, solicitudOrchestrator, "Inicia evaluación", "")
+	Rel(solicitudOrchestrator, riesgoEvaluator, "Solicita evaluación de riesgo", "")
+	Rel(solicitudOrchestrator, antifraudeEvaluator, "Solicita evaluación antifraude", "")
+	Rel(solicitudOrchestrator, estadoManager, "Actualiza estado", "")
+	Rel(solicitudOrchestrator, liquidacionClient, "Inicia liquidación", "")
+	Rel(solicitudOrchestrator, notificacionClient, "Envía notificación", "")
+	Rel(solicitudOrchestrator, metricas, "Reporta métricas", "")
+
+	Rel(riesgoEvaluator, riesgoService, "Consulta servicio externo", "")
+	Rel(riesgoEvaluator, cacheRepository, "Consulta caché", "")
+	Rel(riesgoEvaluator, maestraRepository, "Consulta datos maestros", "")
+
+	Rel(antifraudeEvaluator, antifraudeService, "Consulta servicio externo", "")
+	Rel(antifraudeEvaluator, cacheRepository, "Consulta caché", "")
+
+	Rel(estadoManager, solicitudRepository, "Persiste estado", "")
+	Rel(liquidacionClient, liquidacionService, "Envía evento", "")
+	Rel(notificacionClient, notificacionService, "Envía evento", "")
+	Rel(cacheRepository, cache, "Lee/Escribe caché", "")
+	Rel(solicitudRepository, dbSolicitudes, "Lee/Escribe solicitudes", "")
+	Rel(maestraRepository, dbMaestra, "Lee datos maestros", "")
+
+	%% Estilos
+	UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+	UpdateElementStyle(apiController, $fontColor="white", $bgColor="#42A5F5", $borderColor="#1976D2")
+	UpdateElementStyle(solicitudOrchestrator, $fontColor="white", $bgColor="#1E88E5", $borderColor="#1565C0")
+	UpdateElementStyle(riesgoEvaluator, $fontColor="white", $bgColor="#7E57C2", $borderColor="#5E35B1")
+	UpdateElementStyle(antifraudeEvaluator, $fontColor="white", $bgColor="#FF7043", $borderColor="#D84315")
+	UpdateElementStyle(estadoManager, $fontColor="white", $bgColor="#00BCD4", $borderColor="#0097A7")
+	UpdateElementStyle(liquidacionClient, $fontColor="white", $bgColor="#8BC34A", $borderColor="#689F38")
+	UpdateElementStyle(notificacionClient, $fontColor="white", $bgColor="#E91E63", $borderColor="#C2185B")
+	UpdateElementStyle(cacheRepository, $fontColor="white", $bgColor="#FFD54F", $borderColor="#FFA000")
+	UpdateElementStyle(solicitudRepository, $fontColor="white", $bgColor="#B0BEC5", $borderColor="#607D8B")
+	UpdateElementStyle(maestraRepository, $fontColor="white", $bgColor="#B0BEC5", $borderColor="#607D8B")
+```
+
+%% Notas adicionales:
+%% - API Controller expone endpoints para crear, consultar y actualizar solicitudes.
+%% - Solicitud Orchestrator orquesta el flujo de evaluación en paralelo (riesgo + antifraude).
+%% - Riesgo Evaluator y Antifraude Evaluator son componentes independientes para facilitar escalabilidad.
+%% - Estado Manager gestiona transiciones de estado (CREADA → EN_EVALUACIÓN → APROBADA/RECHAZADA → LIQUIDADA).
+%% - Liquidación Client y Notificación Client usan eventos para desacoplar servicios.
+%% - Caché Repository reduce latencia en consultas frecuentes (scores, datos de clientes).
+%% - Métricas reportan latencia, throughput y errores para monitoreo en tiempo real.
+%% - El diseño permite escalar individualmente los evaluadores según demanda.
+%% - Los repositorios abstraen el acceso a datos para facilitar cambios de tecnología.

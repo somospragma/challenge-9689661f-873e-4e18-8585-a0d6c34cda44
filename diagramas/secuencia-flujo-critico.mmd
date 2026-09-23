@@ -1,0 +1,75 @@
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as Cliente
+    participant Originador as Originador de Créditos
+    participant Antifraude as Motor Antifraude
+    participant BuroRiesgo as Buró de Riesgos
+    participant CoreBancario as Core Bancario
+    participant GatewayPagos as Gateway de Pagos
+    participant Liquidacion as Sistema de Liquidación
+
+    Cliente->>Originador: POST /creditos/solicitudes
+    Originador->>Originador: Validar solicitud
+    alt Solicitud inválida
+        Originador-->>Cliente: 400 Bad Request
+    else Solicitud válida
+        Originador->>Antifraude: Evaluar riesgo de fraude (síncrono)
+        alt Fraude detectado
+            Antifraude-->>Originador: Riesgo ALTO
+            Originador-->>Cliente: 403 Forbidden (Fraude)
+        else Riesgo bajo/medio
+            Antifraude-->>Originador: Riesgo BAJO/MEDIO
+            Originador->>BuroRiesgo: Consultar historial crediticio (asíncrono)
+            BuroRiesgo->>BuroRiesgo: Procesar consulta
+            BuroRiesgo-->>Originador: Evento ResultadoHistorialCrediticio
+            Originador->>Originador: Evaluar elegibilidad
+            alt No elegible
+                Originador-->>Cliente: 400 Bad Request (Rechazado)
+            else Elegible
+                Originador->>CoreBancario: Crear préstamo (asíncrono)
+                CoreBancario->>CoreBancario: Procesar creación
+                CoreBancario-->>Originador: Evento PrestamoCreado
+                Originador->>GatewayPagos: Configurar desembolso (síncrono)
+                GatewayPagos-->>Originador: Confirmación desembolso
+                Originador->>Liquidacion: Iniciar liquidación (asíncrono)
+                Liquidacion->>Liquidacion: Procesar liquidación
+                Liquidacion-->>Originador: Evento LiquidacionCompletada
+                Originador-->>Cliente: 201 Created (Préstamo aprobado)
+            end
+        end
+    end
+
+    Note over Originador,Antifraude: Flujo síncrono crítico
+    Note over Originador,BuroRiesgo: Flujo asíncrono con compensación
+    Note over Originador,CoreBancario: Idempotencia requerida
+    Note over Originador,GatewayPagos: Timeout configurado en 1.5s
+```
+
+---
+**Descripción detallada del flujo crítico:**
+
+1. **Solicitud inicial:** El cliente envía una solicitud POST a `/creditos/solicitudes` con los datos del préstamo.
+
+2. **Validación:** El originador valida la estructura y completitud de la solicitud. Si falla, retorna 400.
+
+3. **Evaluación antifraude:** Se envía la solicitud al motor antifraude para evaluación síncrona. Si se detecta fraude, retorna 403.
+
+4. **Consulta a buró de riesgos:** Se dispara una consulta asíncrona al buró de riesgos. El resultado se recibe vía evento `ResultadoHistorialCrediticio`.
+
+5. **Evaluación de elegibilidad:** Con el historial crediticio, el originador evalúa si el cliente es elegible. Si no, retorna 400.
+
+6. **Creación del préstamo:** Se envía una solicitud asíncrona al core bancario para crear el préstamo. El resultado se recibe vía evento `PrestamoCreado`.
+
+7. **Configuración de desembolso:** Se configura el desembolso en el gateway de pagos (flujo síncrono con timeout).
+
+8. **Liquidación:** Se inicia el proceso de liquidación asíncrono. El resultado se recibe vía evento `LiquidacionCompletada`.
+
+9. **Respuesta final:** Se retorna 201 al cliente con los detalles del préstamo aprobado.
+
+**Consideraciones clave:**
+- **Sincronía vs asincronía:** Los pasos 3 y 7 son síncronos por su criticidad (antifraude y pagos). Los pasos 4, 6 y 8 son asíncronos para manejar carga y latencias.
+- **Idempotencia:** El paso 6 requiere idempotencia para evitar duplicados en caso de reintentos.
+- **Compensación:** Si el paso 7 falla, se debe compensar el préstamo creado en el core bancario.
+- **SLAs:** El timeout del paso 7 está configurado en 1.5s para cumplir con el SLA de 2s.
+- **Volumen:** El diseño soporta 1,500 solicitudes/segundo con colas y workers escalables.
